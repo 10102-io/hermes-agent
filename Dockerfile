@@ -426,6 +426,15 @@ RUN mkdir -p /etc/cont-init.d && \
 COPY --chmod=0755 docker/cont-init.d/015-supervise-perms /etc/cont-init.d/015-supervise-perms
 COPY --chmod=0755 docker/cont-init.d/02-reconcile-profiles /etc/cont-init.d/02-reconcile-profiles
 
+# ---------- Cloudflare Tunnel (Railway-only addition) ----------
+# Installs the cloudflared binary for the s6 `cloudflared` service
+# (docker/s6-rc.d/cloudflared/, copied with the rest of s6-rc.d above).
+# The service only starts when TUNNEL_TOKEN is set in the environment;
+# without it the slot reports permanently down and this is a no-op.
+RUN curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" \
+        -o /usr/local/bin/cloudflared \
+    && chmod +x /usr/local/bin/cloudflared
+
 # ---------- Runtime ----------
 ENV HERMES_WEB_DIST=/opt/hermes/hermes_cli/web_dist
 # Point the TUI launcher at the prebuilt bundle baked at build time (Layer 8:
@@ -492,7 +501,9 @@ RUN mkdir -p /opt/data && chmod 0644 /opt/hermes/tools/facts.json && \
     rm -f /opt/hermes/.venv/.lock /opt/hermes/pm-runtime/.lock
 # Build helpers use system Python above; TUI gateway children need the sealed runtime.
 ENV HERMES_PYTHON=/opt/hermes/.venv/bin/python
-VOLUME [ "/opt/data" ]
+# VOLUME [ "/opt/data" ]  # disabled for Railway: the VOLUME directive is
+# rejected by Railway's builder; persistence comes from a Railway Volume
+# mounted at /opt/data instead (`railway volume add`).
 
 # The image ENTRYPOINT is a tiny dispatcher rather than `/init` directly.
 # When the image really owns PID 1 (normal Docker / Podman), the dispatcher
@@ -527,4 +538,7 @@ VOLUME [ "/opt/data" ]
 # wrapper-as-ENTRYPOINT, leading-dash args like `--version` would be
 # intercepted by /init's POSIX shell.
 ENTRYPOINT [ "/opt/hermes/docker/entrypoint-dispatch.sh" ]
-CMD [ ]
+# Railway-only default: with an empty CMD, main-wrapper.sh execs the bare
+# `hermes` interactive chat REPL, which exits immediately when the container
+# has no TTY (Railway). Default to the long-running gateway instead.
+CMD [ "gateway", "run" ]

@@ -388,6 +388,36 @@ _remove_role = _mutation(
     "Role {role_id} removed from user {user_id}.")
 
 
+def _rename_channel(token: str, channel_id: str, name: str, **_kwargs: Any) -> str:
+    """Rename a channel."""
+    channel = _discord_request("PATCH", f"/channels/{channel_id}", token, body={"name": name})
+    return json.dumps({"success": True, "channel_id": channel_id, "name": channel.get("name")})
+
+
+def _set_channel_topic(token: str, channel_id: str, topic: str, **_kwargs: Any) -> str:
+    """Set the topic (description shown under the channel name) of a channel."""
+    channel = _discord_request("PATCH", f"/channels/{channel_id}", token, body={"topic": topic})
+    return json.dumps({"success": True, "channel_id": channel_id, "topic": channel.get("topic")})
+
+
+def _edit_guild(
+    token: str, guild_id: str, name: Optional[str] = None, description: Optional[str] = None,
+    **_kwargs: Any) -> str:
+    """Edit guild metadata (name and/or description)."""
+    body: Dict[str, Any] = {}
+    # Discord requires a 2-100 char guild name; treat empty as "don't update name"
+    # rather than letting Discord reject the whole request.
+    if name is not None and name.strip():
+        body["name"] = name
+    if description is not None:
+        body["description"] = description
+    if not body:
+        return json.dumps({"success": False, "error": "no fields to update; pass name and/or description"})
+    guild = _discord_request("PATCH", f"/guilds/{guild_id}", token, body=body)
+    return json.dumps({"success": True, "guild_id": guild_id, "name": guild.get("name"),
+                       "description": guild.get("description")})
+
+
 # ── action dispatch + metadata ───────────────────────────────────────────────
 # Single source of truth: (action, handler, required-param signature, description). Order is
 # the schema/enum order; the signature drives runtime required-param validation.
@@ -407,6 +437,9 @@ _ACTION_MANIFEST = [
     ("create_thread", _create_thread, "(channel_id, name)", "create a public thread; optional message_id anchor"),
     ("add_role", _add_role, "(guild_id, user_id, role_id)", "assign a role"),
     ("remove_role", _remove_role, "(guild_id, user_id, role_id)", "remove a role"),
+    ("rename_channel", _rename_channel, "(channel_id, name)", "rename a channel"),
+    ("set_channel_topic", _set_channel_topic, "(channel_id, topic)", "set a channel's topic/description"),
+    ("edit_guild", _edit_guild, "(guild_id)", "edit guild name and/or description"),
 ]
 _ACTIONS = {name: fn for name, fn, _sig, _desc in _ACTION_MANIFEST}
 _REQUIRED_PARAMS: Dict[str, List[str]] = {
@@ -479,7 +512,12 @@ _SCHEMA_PROPERTIES: Dict[str, Any] = {
     "role_id": {"type": "string", "description": "Discord role ID."},
     "message_id": {"type": "string", "description": "Discord message ID."},
     "query": {"type": "string", "description": "Member name prefix to search for (search_members)."},
-    "name": {"type": "string", "description": "New thread name (create_thread)."},
+    "name": {
+        "type": "string",
+        "description": "Thread name (create_thread), new channel name (rename_channel), or new guild name (edit_guild).",
+    },
+    "topic": {"type": "string", "description": "Channel topic shown under the channel name (set_channel_topic)."},
+    "description": {"type": "string", "description": "Guild description / about text (edit_guild)."},
     "limit": {
         "type": "integer",
         "minimum": 1,
