@@ -56,15 +56,7 @@ Upstream **NousResearch/hermes-agent** is **${behind}** commit(s) ahead of the r
 
 A test rebase of \`railway\` onto the latest upstream main applied **cleanly** :white_check_mark:.
 
-**To ship the update** (locally; \`origin\` = upstream, \`fork\` = mksala/hermes-agent):
-\`\`\`sh
-cd ~/DevMac/hermes
-git fetch origin
-git checkout railway && git rebase origin/main && git push -f ghfork railway
-git branch -f main origin/main && git push ghfork main   # refresh the mirror
-railway up --service hermes-agent --detach
-\`\`\`
-\`HERMES_DASHBOARD_INSECURE=1\` must remain set on the Railway service.
+**To ship:** tell Claude Code "update hermes". It rebases \`railway\` onto upstream, pushes (every push to \`railway\` deploys on Railway), and verifies the deploy.
 EOF
 else
 cat > "$body_file" <<EOF
@@ -74,16 +66,7 @@ A test rebase of \`railway\` onto the latest upstream main **conflicts** :warnin
 
 Conflicting files: \`${conflicts}\`
 
-**Resolve locally** (\`origin\` = upstream, \`fork\` = mksala/hermes-agent):
-\`\`\`sh
-cd ~/DevMac/hermes
-git fetch origin
-git checkout railway && git rebase origin/main
-# fix the conflicts, then:
-git rebase --continue && git push -f ghfork railway
-git branch -f main origin/main && git push ghfork main   # refresh the mirror
-railway up --service hermes-agent --detach
-\`\`\`
+**To ship:** tell Claude Code "update hermes". It rebases \`railway\`, resolves the conflicts, tests, pushes (every push to \`railway\` deploys on Railway), and verifies the deploy.
 EOF
 fi
 

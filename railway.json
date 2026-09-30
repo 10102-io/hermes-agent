@@ -1,12 +1,3 @@
 {
-  "$schema": "https://railway.com/railway.schema.json",
-  "build": {
-    "watchPatterns": [
-      "/**",
-      "!/.github/**",
-      "!/website/**",
-      "!/tests/**",
-      "!/apps/desktop/**"
-    ]
-  }
+  "$schema": "https://railway.com/railway.schema.json"
 }
