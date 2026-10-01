@@ -864,6 +864,13 @@ def _extract_pricing(payload: Dict[str, Any]) -> Dict[str, Any]:
     deepinfra_fields = {"prompt": "input_tokens", "completion": "output_tokens", "cache_read": "cache_read_tokens"}
     if isinstance(deepinfra_pricing, dict) and any(k in deepinfra_pricing for k in deepinfra_fields.values()):
         return _per_token(deepinfra_pricing, deepinfra_fields, lambda v: v / 1_000_000)
+    # Venice ships ``model_spec.pricing.<kind>.usd`` in $/MTok (each kind also carries a ``diem`` rate).
+    model_spec = payload.get("model_spec")
+    venice_pricing = model_spec.get("pricing") if isinstance(model_spec, dict) else None
+    venice_fields = {"prompt": "input", "completion": "output", "cache_read": "cache_input", "cache_write": "cache_write"}
+    if isinstance(venice_pricing, dict) and isinstance(venice_pricing.get("input"), dict):
+        flat = {k: v.get("usd") for k, v in venice_pricing.items() if isinstance(v, dict)}
+        return _per_token(flat, venice_fields, lambda v: v / 1_000_000)
     alias_map = {
         "prompt": ("prompt", "input", "input_cost_per_token", "prompt_token_cost"),
         "completion": ("completion", "output", "output_cost_per_token", "completion_token_cost"),

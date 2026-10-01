@@ -4301,6 +4301,17 @@ def _try_main_agent_model_fallback(
                     reason, failed_provider, main_provider)
         return None, None, ""
     main_base_url = _custom_health_base_url(main_provider)
+    # A bare "custom" runtime (gateway channel override onto a named custom provider) names its
+    # endpoint only via the live runtime's base_url. Resolving "custom" without it falls through
+    # to the config-default provider and pairs that client with the custom model id (e.g. a
+    # Venice model sent to Anthropic -> 404). No live endpoint -> no safe main-model fallback.
+    explicit_base_url = explicit_api_key = None
+    if main_provider.lower() == "custom":
+        explicit_base_url = str(_runtime_main_value("base_url") or "").strip()
+        if not explicit_base_url:
+            return None, None, ""
+        explicit_api_key = _runtime_main_value("api_key") or None
+        main_base_url = main_base_url or explicit_base_url.rstrip("/")
     if _failed_backend_skip(
             failed_provider, failed_model, failed_base_url=failed_base_url,
             failure_scope=failure_scope)(main_provider, main_model, main_base_url):
@@ -4309,7 +4320,9 @@ def _try_main_agent_model_fallback(
         _log_skip_unhealthy(main_provider, task, base_url=main_base_url)
         return None, None, ""
     try:
-        client, resolved_model = resolve_provider_client(provider=main_provider, model=main_model)
+        client, resolved_model = resolve_provider_client(
+            provider=main_provider, model=main_model,
+            explicit_base_url=explicit_base_url, explicit_api_key=explicit_api_key)
     except Exception:
         client, resolved_model = None, None
     if client is None:
